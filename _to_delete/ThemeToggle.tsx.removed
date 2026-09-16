@@ -1,0 +1,41 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+
+const STORAGE_KEY = 'shrimps-theme';
+
+/**
+ * Toggles the site between the daylight tank and the "night tank" dark theme
+ * by flipping the `dark` class on <html>, and remembers the choice. The
+ * initial class is set by an inline script in the layout to avoid a flash, so
+ * this control just keeps React in sync and handles clicks.
+ */
+export default function ThemeToggle() {
+  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    setDark(document.documentElement.classList.contains('dark'));
+  }, []);
+
+  const toggle = () => {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.classList.toggle('dark', next);
+    try {
+      window.localStorage.setItem(STORAGE_KEY, next ? 'dark' : 'light');
+    } catch {
+      // Storage unavailable — the theme still applies for this session.
+    }
+  };
+
+  return (
+    <button
+      onClick={toggle}
+      aria-label={dark ? 'Switch to day tank' : 'Switch to night tank'}
+      title={dark ? 'Day tank' : 'Night tank'}
+      className="flex h-9 w-9 items-center justify-center rounded-full bg-sand-100 text-lg shadow-sm ring-1 ring-sand-200 transition-transform hover:scale-110 dark:bg-night-700 dark:ring-night-600"
+    >
+      {dark ? '☀️' : '🌙'}
+    </button>
+  );
+}

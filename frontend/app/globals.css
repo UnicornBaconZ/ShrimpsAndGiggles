@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-sand-50 text-moss-700 font-body antialiased;
+
+  /* Make the whole site unselectable — text, emoji, everything. */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Keep real form fields usable: you can still select/edit what you type. */
+input,
+textarea,
+select,
+[contenteditable] {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+/*
+ * Fallback for anything still selectable (e.g. inside inputs): use a soft,
+ * warm highlight instead of the browser's default bright blue.
+ */
+::selection {
+  background-color: #f6a07a; /* coral-300 */
+  color: #3a4e33; /* moss-700 */
+}
+::-moz-selection {
+  background-color: #f6a07a;
+  color: #3a4e33;
+}
+
+/* Soft organic section divider used between page bands. */
+.wave-divider {
+  width: 100%;
+  height: 48px;
+  display: block;
+}
+
+/*
+ * Respect users who prefer less motion: collapse every animation and
+ * transition so decorative movement stops and entrance animations settle
+ * instantly on their final (visible) frame.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
