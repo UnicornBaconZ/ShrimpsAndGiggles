@@ -1,7 +1,7 @@
 import { CreateOrderPayload, OrderStatus, OrderView, Product } from './types';
 
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+  process.env.NEXT_PUBLIC_API_URL || 'https://shrimps-and-giggles-qo4m.vercel.app/api';
 
 /**
  * Thin API client — the single boundary between the UI and the backend.
