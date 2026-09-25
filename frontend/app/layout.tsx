@@ -4,6 +4,7 @@ import { CartProvider } from '../context/CartContext';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import CartDrawer from '../components/CartDrawer';
+import CartToast from '../components/CartToast';
 import BubbleTrail from '../components/BubbleTrail';
 
 export const metadata: Metadata = {
@@ -30,6 +31,7 @@ export default function RootLayout({
           <main className="min-h-screen">{children}</main>
           <Footer />
           <CartDrawer />
+          <CartToast />
         </CartProvider>
         <BubbleTrail />
       </body>

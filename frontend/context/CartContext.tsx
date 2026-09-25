@@ -16,11 +16,19 @@ export interface CartLine {
   quantity: number;
 }
 
+/** The most recent "added to cart" event, shown briefly as a toast. */
+export interface CartToast {
+  id: number;
+  product: Product;
+}
+
 interface CartContextValue {
   lines: CartLine[];
   itemCount: number;
   totalCents: number;
   isOpen: boolean;
+  toast: CartToast | null;
+  dismissToast: () => void;
   add: (product: Product) => void;
   setQuantity: (productId: string, quantity: number) => void;
   remove: (productId: string) => void;
@@ -43,6 +51,7 @@ const STORAGE_KEY = 'shrimps-cart-v1';
 export function CartProvider({ children }: { children: ReactNode }) {
   const [lines, setLines] = useState<CartLine[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [toast, setToast] = useState<CartToast | null>(null);
   // Guards the persist effect so we don't overwrite saved state with the
   // empty initial array before rehydration has run.
   const [hydrated, setHydrated] = useState(false);
@@ -84,7 +93,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, { product, quantity: 1 }];
     });
-    setIsOpen(true);
+    // Confirm with a toast rather than opening the drawer, so shoppers can
+    // keep browsing. A fresh id restarts the toast on repeated adds.
+    setToast({ id: Date.now(), product });
   }, []);
 
   const setQuantity = useCallback((productId: string, quantity: number) => {
@@ -109,6 +120,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const clear = useCallback(() => setLines([]), []);
   const open = useCallback(() => setIsOpen(true), []);
   const close = useCallback(() => setIsOpen(false), []);
+  const dismissToast = useCallback(() => setToast(null), []);
 
   const itemCount = useMemo(
     () => lines.reduce((sum, l) => sum + l.quantity, 0),
@@ -124,6 +136,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     itemCount,
     totalCents,
     isOpen,
+    toast,
+    dismissToast,
     add,
     setQuantity,
     remove,

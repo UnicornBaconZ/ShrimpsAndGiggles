@@ -1,8 +1,10 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { createOrder, formatPrice } from '../lib/api';
+import { FALLBACK_IMAGE } from '../lib/constants';
 import { OrderView } from '../lib/types';
 import { burstShrimp } from './ShrimpConfetti';
 
@@ -11,6 +13,47 @@ type Status =
   | { kind: 'submitting' }
   | { kind: 'success'; order: OrderView }
   | { kind: 'error'; message: string };
+
+const qtyButtonClass =
+  'flex h-7 w-7 items-center justify-center rounded-full bg-sand-100 text-moss-600 transition-colors hover:bg-sand-200';
+
+/**
+ * Minus / plus drawn as SVG strokes: text glyphs sit on the font's baseline
+ * and never look centred inside a round button.
+ */
+function QtyIcon({ plus = false }: { plus?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 12 12"
+      className="h-3 w-3"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <line x1="2" y1="6" x2="10" y2="6" />
+      {plus && <line x1="6" y1="2" x2="6" y2="10" />}
+    </svg>
+  );
+}
+
+type Field = 'name' | 'email' | 'street' | 'houseNumber' | 'city' | 'country';
+
+/** Returns an error message per invalid field (an empty object when valid). */
+function validate(
+  values: Record<Field, string>,
+): Partial<Record<Field, string>> {
+  const errors: Partial<Record<Field, string>> = {};
+  if (!values.name.trim()) errors.name = 'Tell us who the shrimp are for.';
+  if (!values.email.trim()) errors.email = 'We need an email for your receipt.';
+  else if (!/.+@.+\..+/.test(values.email))
+    errors.email = 'That email looks a bit fishy. Check it?';
+  if (!values.street.trim()) errors.street = 'Street is required.';
+  if (!values.houseNumber.trim()) errors.houseNumber = 'Required.';
+  if (!values.city.trim()) errors.city = 'City is required.';
+  if (!values.country.trim()) errors.country = 'Country is required.';
+  return errors;
+}
 
 export default function CartDrawer() {
   const { lines, totalCents, isOpen, close, setQuantity, remove, clear } =
@@ -22,6 +65,10 @@ export default function CartDrawer() {
   const [street, setStreet] = useState('');
   const [houseNumber, setHouseNumber] = useState('');
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
+  // Errors appear per field once it has been left, or all at once after a
+  // checkout attempt, so nobody is scolded while typing their first entry.
+  const [touched, setTouched] = useState<Partial<Record<Field, boolean>>>({});
+  const [submitAttempted, setSubmitAttempted] = useState(false);
   const panelRef = useRef<HTMLElement>(null);
 
   // While the drawer is open: close on Escape, lock background scroll, and
@@ -52,7 +99,16 @@ export default function CartDrawer() {
 
   if (!isOpen) return null;
 
+  const errors = validate({ name, email, street, houseNumber, city, country });
+  const isValid = Object.keys(errors).length === 0;
+  const errorFor = (field: Field) =>
+    touched[field] || submitAttempted ? errors[field] : undefined;
+
   const handleCheckout = async () => {
+    if (!isValid) {
+      setSubmitAttempted(true);
+      return;
+    }
     setStatus({ kind: 'submitting' });
     try {
       const order = await createOrder({
@@ -77,6 +133,8 @@ export default function CartDrawer() {
       setCity('');
       setStreet('');
       setHouseNumber('');
+      setTouched({});
+      setSubmitAttempted(false);
     } catch (err) {
       setStatus({
         kind: 'error',
@@ -85,18 +143,35 @@ export default function CartDrawer() {
     }
   };
 
-  const canCheckout =
-    lines.length > 0 &&
-    name.trim().length > 0 &&
-    /.+@.+\..+/.test(email) &&
-    country.trim().length > 0 &&
-    city.trim().length > 0 &&
-    street.trim().length > 0 &&
-    houseNumber.trim().length > 0 &&
-    status.kind !== 'submitting';
+  // The button stays clickable while the form is invalid, so a click can
+  // reveal what still needs filling in.
+  const canCheckout = lines.length > 0 && status.kind !== 'submitting';
 
-  const inputClass =
-    'w-full rounded-xl border border-sand-200 bg-white px-3 py-2 text-sm outline-none focus:border-moss-400';
+  /** Shared wiring for every checkout input: value, blur tracking, a11y. */
+  const fieldProps = (
+    field: Field,
+    value: string,
+    setValue: (v: string) => void,
+  ) => ({
+    value,
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+      setValue(e.target.value),
+    onBlur: () => setTouched((t) => ({ ...t, [field]: true })),
+    'aria-invalid': Boolean(errorFor(field)),
+    'aria-describedby': errorFor(field) ? `${field}-error` : undefined,
+    className: `w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none ${
+      errorFor(field)
+        ? 'border-coral-500 focus:border-coral-600'
+        : 'border-sand-200 focus:border-moss-400'
+    }`,
+  });
+
+  const fieldError = (field: Field) =>
+    errorFor(field) ? (
+      <p id={`${field}-error`} className="mt-1 text-xs text-coral-600">
+        {errorFor(field)}
+      </p>
+    ) : null;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -162,6 +237,15 @@ export default function CartDrawer() {
                   key={line.product.id}
                   className="flex gap-3 rounded-2xl bg-white p-3 ring-1 ring-sand-200"
                 >
+                  <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-sand-100">
+                    <Image
+                      src={line.product.imageUrl || FALLBACK_IMAGE}
+                      alt={line.product.name}
+                      fill
+                      sizes="64px"
+                      className="object-cover"
+                    />
+                  </div>
                   <div className="flex-1">
                     <p className="font-semibold text-moss-700">
                       {line.product.name}
@@ -174,20 +258,20 @@ export default function CartDrawer() {
                         onClick={() =>
                           setQuantity(line.product.id, line.quantity - 1)
                         }
-                        className="h-7 w-7 rounded-full bg-sand-100 text-moss-600"
+                        className={qtyButtonClass}
                         aria-label="Decrease quantity"
                       >
-                        −
+                        <QtyIcon />
                       </button>
                       <span className="w-6 text-center">{line.quantity}</span>
                       <button
                         onClick={() =>
                           setQuantity(line.product.id, line.quantity + 1)
                         }
-                        className="h-7 w-7 rounded-full bg-sand-100 text-moss-600"
+                        className={qtyButtonClass}
                         aria-label="Increase quantity"
                       >
-                        +
+                        <QtyIcon plus />
                       </button>
                       <button
                         onClick={() => remove(line.product.id)}
@@ -214,55 +298,78 @@ export default function CartDrawer() {
             </div>
 
             <div className="space-y-2">
-              <input
-                type="text"
-                placeholder="Your name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className={inputClass}
-              />
-              <input
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={inputClass}
-              />
+              <div>
+                <input
+                  type="text"
+                  placeholder="Your name"
+                  aria-label="Your name"
+                  autoComplete="name"
+                  {...fieldProps('name', name, setName)}
+                />
+                {fieldError('name')}
+              </div>
+              <div>
+                <input
+                  type="email"
+                  placeholder="you@example.com"
+                  aria-label="Email"
+                  autoComplete="email"
+                  {...fieldProps('email', email, setEmail)}
+                />
+                {fieldError('email')}
+              </div>
 
               <p className="pt-2 text-xs font-semibold uppercase tracking-wide text-moss-400">
                 Shipping address
               </p>
               <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Street"
-                  value={street}
-                  onChange={(e) => setStreet(e.target.value)}
-                  className={`${inputClass} w-2/3`}
-                />
-                <input
-                  type="text"
-                  placeholder="No."
-                  value={houseNumber}
-                  onChange={(e) => setHouseNumber(e.target.value)}
-                  className={`${inputClass} w-1/3`}
-                />
+                <div className="w-2/3">
+                  <input
+                    type="text"
+                    placeholder="Street"
+                    aria-label="Street"
+                    autoComplete="address-line1"
+                    {...fieldProps('street', street, setStreet)}
+                  />
+                  {fieldError('street')}
+                </div>
+                <div className="w-1/3">
+                  <input
+                    type="text"
+                    placeholder="No."
+                    aria-label="House number"
+                    {...fieldProps('houseNumber', houseNumber, setHouseNumber)}
+                  />
+                  {fieldError('houseNumber')}
+                </div>
               </div>
-              <input
-                type="text"
-                placeholder="City"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                className={inputClass}
-              />
-              <input
-                type="text"
-                placeholder="Country"
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                className={inputClass}
-              />
+              <div>
+                <input
+                  type="text"
+                  placeholder="City"
+                  aria-label="City"
+                  autoComplete="address-level2"
+                  {...fieldProps('city', city, setCity)}
+                />
+                {fieldError('city')}
+              </div>
+              <div>
+                <input
+                  type="text"
+                  placeholder="Country"
+                  aria-label="Country"
+                  autoComplete="country-name"
+                  {...fieldProps('country', country, setCountry)}
+                />
+                {fieldError('country')}
+              </div>
             </div>
+
+            {submitAttempted && !isValid && (
+              <p className="mt-2 text-sm text-coral-600">
+                Almost there! Fill in the highlighted fields above.
+              </p>
+            )}
 
             {status.kind === 'error' && (
               <p className="mt-2 text-sm text-coral-600">{status.message}</p>

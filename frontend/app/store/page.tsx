@@ -1,5 +1,5 @@
 import { fetchProducts } from '../../lib/api';
-import ProductCard from '../../components/ProductCard';
+import StoreCatalog from '../../components/StoreCatalog';
 import WaveDivider from '../../components/WaveDivider';
 import { Product } from '../../lib/types';
 
@@ -45,11 +45,7 @@ export default async function StorePage() {
             {error}
           </div>
         ) : (
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            {products.map((product, i) => (
-              <ProductCard key={product.id} product={product} index={i} />
-            ))}
-          </div>
+          <StoreCatalog products={products} />
         )}
       </section>
     </>
